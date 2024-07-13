@@ -1,35 +1,77 @@
-import React, { useState } from "react";
-
-const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const studyHours = [2, 2, 2, 2, 4, 7, 7];
+import React, { useState, useEffect } from "react";
 
 const LearningPlanTracker = () => {
   const [currentWeek, setCurrentWeek] = useState(1);
-  const [progress, setProgress] = useState(
-    Array(5)
-      .fill()
-      .map(() => Array(7).fill(false))
-  );
   const [darkMode, setDarkMode] = useState(false);
+  const [studyData, setStudyData] = useState(() => {
+    try {
+      const savedData = localStorage.getItem("studyData");
+      return savedData
+        ? JSON.parse(savedData)
+        : Array(5)
+            .fill()
+            .map(() =>
+              Array(7)
+                .fill()
+                .map(() => ({ completed: false, hours: 0 }))
+            );
+    } catch (error) {
+      console.error("Error loading data from localStorage:", error);
+      return Array(5)
+        .fill()
+        .map(() =>
+          Array(7)
+            .fill()
+            .map(() => ({ completed: false, hours: 0 }))
+        );
+    }
+  });
+  const [newHours, setNewHours] = useState("");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("studyData", JSON.stringify(studyData));
+    } catch (error) {
+      console.error("Error saving data to localStorage:", error);
+    }
+  }, [studyData]);
 
   const handleCheckboxChange = (week, day) => {
-    const newProgress = progress.map((w, i) =>
-      i === week ? w.map((d, j) => (j === day ? !d : d)) : w
-    );
-    setProgress(newProgress);
+    const newData = [...studyData];
+    newData[week][day].completed = !newData[week][day].completed;
+    setStudyData(newData);
   };
 
-  const totalHours = progress.reduce(
-    (sum, week, weekIndex) =>
+  const handleHoursChange = (week, day, hours) => {
+    const newData = [...studyData];
+    newData[week][day].hours = hours;
+    setStudyData(newData);
+  };
+
+  const addHours = (week, day) => {
+    if (newHours && !isNaN(newHours)) {
+      handleHoursChange(week, day, Number(newHours));
+      setNewHours("");
+    }
+  };
+
+  const removeHours = (week, day) => {
+    handleHoursChange(week, day, 0);
+  };
+
+  const totalHours = studyData.reduce(
+    (sum, week) =>
       sum +
       week.reduce(
-        (weekSum, day, dayIndex) => weekSum + (day ? studyHours[dayIndex] : 0),
+        (weekSum, day) => weekSum + (day.completed ? day.hours : 0),
         0
       ),
     0
   );
 
   const progressPercentage = (totalHours / 110) * 100;
+
+  const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
   return (
     <div
@@ -87,15 +129,34 @@ const LearningPlanTracker = () => {
                 >
                   <input
                     type="checkbox"
-                    checked={progress[currentWeek - 1][index]}
+                    checked={studyData[currentWeek - 1][index].completed}
                     onChange={() => {}}
                     className="w-6 h-6"
                   />
                 </div>
                 <span className="mt-2 text-sm font-medium">{day}</span>
                 <span className="text-xs text-gray-500">
-                  {studyHours[index]}h
+                  {studyData[currentWeek - 1][index].hours}h
                 </span>
+                <input
+                  type="number"
+                  value={newHours}
+                  onChange={(e) => setNewHours(e.target.value)}
+                  className="w-16 mt-1 p-1 text-sm rounded"
+                  placeholder="Stunden"
+                />
+                <button
+                  onClick={() => addHours(currentWeek - 1, index)}
+                  className="mt-1 px-2 py-1 text-xs bg-green-500 text-white rounded"
+                >
+                  Hinzufügen
+                </button>
+                <button
+                  onClick={() => removeHours(currentWeek - 1, index)}
+                  className="mt-1 px-2 py-1 text-xs bg-red-500 text-white rounded"
+                >
+                  Löschen
+                </button>
               </div>
             ))}
           </div>
@@ -115,28 +176,13 @@ const LearningPlanTracker = () => {
             <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
               <div
                 className="bg-purple-600 h-2.5 rounded-full"
-                style={{ width: `${progressPercentage}%` }}
+                style={{ width: `${Math.min(progressPercentage, 100)}%` }}
               ></div>
             </div>
             <div className="text-right text-sm text-gray-500">
               {progressPercentage.toFixed(1)}%
             </div>
           </div>
-        </div>
-
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={() => setCurrentWeek((prev) => Math.max(1, prev - 1))}
-            className="px-4 py-2 rounded-lg bg-purple-500 text-white"
-          >
-            Vorherige Woche
-          </button>
-          <button
-            onClick={() => setCurrentWeek((prev) => Math.min(5, prev + 1))}
-            className="px-4 py-2 rounded-lg bg-purple-500 text-white"
-          >
-            Nächste Woche
-          </button>
         </div>
       </div>
     </div>
